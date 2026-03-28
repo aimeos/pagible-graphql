@@ -1,0 +1,34 @@
+<?php
+
+/**
+ * @license LGPL, https://opensource.org/license/lgpl-3-0
+ */
+
+
+namespace Aimeos\Cms\GraphQL\Mutations;
+
+use Illuminate\Support\Facades\DB;
+use Aimeos\Cms\Models\File;
+
+
+final class PurgeFile
+{
+    /**
+     * @param  null  $rootValue
+     * @param  array<string, mixed>  $args
+     * @return array<int, mixed>
+     */
+    public function __invoke( $rootValue, array $args ) : array
+    {
+        return DB::connection( config( 'cms.db', 'sqlite' ) )->transaction( function() use ( $args ) {
+
+            $items = File::withTrashed()->whereIn( 'id', $args['id'] )->get();
+
+            foreach( $items as $item ) {
+                $item->purge();
+            }
+
+            return $items->all();
+        }, 3 );
+    }
+}
