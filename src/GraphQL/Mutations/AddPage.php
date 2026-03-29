@@ -29,7 +29,7 @@ final class AddPage
             return DB::connection( config( 'cms.db', 'sqlite' ) )->transaction( function() use ( $args ) {
 
                 $args['input'] = $this->sanitize( $args['input'] ?? [] );
-                $editor = Auth::user()->name ?? request()->ip();
+                $editor = Auth::user()->email ?? request()->ip();
                 $versionId = ( new Version )->newUniqueId();
 
                 $page = new Page();
@@ -102,9 +102,13 @@ final class AddPage
             }
         }
 
-        Validation::content( $input['content'] ?? [] );
-        Validation::structured( $input['meta'] ?? new \stdClass(), 'meta' );
-        Validation::structured( $input['config'] ?? new \stdClass(), 'config' );
+        try {
+            Validation::content( $input['content'] ?? [] );
+            Validation::structured( $input['meta'] ?? new \stdClass(), 'meta' );
+            Validation::structured( $input['config'] ?? new \stdClass(), 'config' );
+        } catch( \InvalidArgumentException $e ) {
+            throw new Error( $e->getMessage() );
+        }
 
         return $input;
     }

@@ -22,7 +22,11 @@ final class AddElement
      */
     public function __invoke( $rootValue, array $args ) : Element
     {
-        Validation::element( $args['input']['type'] ?? '' );
+        try {
+            Validation::element( $args['input']['type'] ?? '' );
+        } catch( \InvalidArgumentException $e ) {
+            throw new \GraphQL\Error\Error( $e->getMessage() );
+        }
 
         if( @$args['input']['type'] === 'html' && @$args['input']['data']->text ) {
             $args['input']['data']->text = \Aimeos\Cms\Utils::html( (string) $args['input']['data']->text );
@@ -30,7 +34,7 @@ final class AddElement
 
         return DB::connection( config( 'cms.db', 'sqlite' ) )->transaction( function() use ( $args ) {
 
-            $editor = Auth::user()->name ?? request()->ip();
+            $editor = Auth::user()->email ?? request()->ip();
             $versionId = ( new Version )->newUniqueId();
 
             $element = new Element();

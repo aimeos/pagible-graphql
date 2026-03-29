@@ -22,12 +22,16 @@ final class PubFile
      */
     public function __invoke( $rootValue, array $args ) : array
     {
-        Validation::publishAt( $args['at'] ?? null );
+        try {
+            Validation::publishAt( $args['at'] ?? null );
+        } catch( \InvalidArgumentException $e ) {
+            throw new \GraphQL\Error\Error( $e->getMessage() );
+        }
 
         return DB::connection( config( 'cms.db', 'sqlite' ) )->transaction( function() use ( $args ) {
 
             $items = File::with( 'latest' )->whereIn( 'id', $args['id'] )->get();
-            $editor = Auth::user()->name ?? request()->ip();
+            $editor = Auth::user()->email ?? request()->ip();
 
             foreach( $items as $item )
             {
