@@ -29,9 +29,6 @@ final class PubPage
             throw new \GraphQL\Error\Error( $e->getMessage() );
         }
 
-        return Resource::publish( Page::class, $args['id'], Utils::editor( Auth::user() ), $args['at'] ?? null, [
-            'latest.files' => fn( $q ) => $q->select( 'cms_files.id' ),
-            'latest.elements' => fn( $q ) => $q->select( 'cms_elements.id' )
-        ] )->all();
+        return Resource::publish( Page::class, $args['id'], Utils::editor( Auth::user() ), $args['at'] ?? null, ['latest.files', 'latest.elements'] )->all();
     }
 }

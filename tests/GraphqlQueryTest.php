@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
 use Nuwave\Lighthouse\Testing\RefreshesSchemaCache;
-use Database\Seeders\TestSeeder;
+use Database\Seeders\CmsSeeder;
 use Aimeos\Cms\Models\Element;
 use Aimeos\Cms\Models\File;
 use Aimeos\Cms\Models\Page;
@@ -69,7 +69,7 @@ class GraphqlQueryTest extends GraphqlTestAbstract
 
     public function testPages()
     {
-        $this->seed( TestSeeder::class );
+        $this->seed( CmsSeeder::class );
 
         $page = Page::where( 'tag', 'root' )->firstOrFail();
 
@@ -95,7 +95,7 @@ class GraphqlQueryTest extends GraphqlTestAbstract
 
     public function testElements()
     {
-        $this->seed( TestSeeder::class );
+        $this->seed( CmsSeeder::class );
 
         $element = Element::where( 'type', 'footer' )->firstOrFail();
 
@@ -121,7 +121,7 @@ class GraphqlQueryTest extends GraphqlTestAbstract
 
     public function testFiles()
     {
-        $this->seed( TestSeeder::class );
+        $this->seed( CmsSeeder::class );
 
         $response = $this->actingAs( $this->user )->graphQL( '{
             files(filter: {

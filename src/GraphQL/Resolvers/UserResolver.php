@@ -43,16 +43,4 @@ class UserResolver
     {
         return json_decode( $user->cmsdata ?? '', true ) ?: null;
     }
-
-
-    /**
-     * @param array<string, mixed> $args
-     * @param mixed $context
-     */
-    public function token( User $user, array $args, mixed $context ): string
-    {
-        $expires = now()->addDay()->timestamp;
-
-        return base64_encode( $expires . '|' . hash_hmac( 'sha256', (string) $expires, config( 'app.key' ) ) );
-    }
 }
