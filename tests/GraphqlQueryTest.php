@@ -7,11 +7,10 @@
 
 namespace Tests;
 
-use Illuminate\Foundation\Testing\DatabaseTruncation;
-use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
 use Nuwave\Lighthouse\Testing\RefreshesSchemaCache;
-use Database\Seeders\CmsSeeder;
+use Database\Seeders\TestSeeder;
 use Aimeos\Cms\Models\Element;
 use Aimeos\Cms\Models\File;
 use Aimeos\Cms\Models\Page;
@@ -20,37 +19,30 @@ use Aimeos\Cms\Models\Page;
 class GraphqlQueryTest extends GraphqlTestAbstract
 {
     use CmsWithMigrations;
-    use DatabaseTruncation;
+    use RefreshDatabase;
     use MakesGraphQLRequests;
     use RefreshesSchemaCache;
 
-    protected $connectionsToTruncate = ['testing'];
+    protected $seeder = TestSeeder::class;
 
 
-    protected function beforeTruncatingDatabase(): void
+    protected function defineEnvironment( $app )
     {
-        // In-memory SQLite databases don't persist across test classes
-        RefreshDatabaseState::$migrated = false;
-    }
-
-
-	protected function defineEnvironment( $app )
-	{
         parent::defineEnvironment( $app );
 
-		$app['config']->set( 'lighthouse.schema_path', __DIR__ . '/default-schema.graphql' );
-		$app['config']->set( 'lighthouse.namespaces.models', ['App\Models', 'Aimeos\\Cms\\Models'] );
-		$app['config']->set( 'lighthouse.namespaces.mutations', ['Aimeos\\Cms\\GraphQL\\Mutations'] );
-		$app['config']->set( 'lighthouse.namespaces.directives', ['Aimeos\\Cms\\GraphQL\\Directives'] );
+        $app['config']->set( 'lighthouse.schema_path', __DIR__ . '/default-schema.graphql' );
+        $app['config']->set( 'lighthouse.namespaces.models', ['App\Models', 'Aimeos\\Cms\\Models'] );
+        $app['config']->set( 'lighthouse.namespaces.mutations', ['Aimeos\\Cms\\GraphQL\\Mutations'] );
+        $app['config']->set( 'lighthouse.namespaces.directives', ['Aimeos\\Cms\\GraphQL\\Directives'] );
     }
 
 
-	protected function getPackageProviders( $app )
-	{
-		return array_merge( parent::getPackageProviders( $app ), [
-			'Nuwave\Lighthouse\LighthouseServiceProvider'
-		] );
-	}
+    protected function getPackageProviders( $app )
+    {
+        return array_merge( parent::getPackageProviders( $app ), [
+            'Nuwave\Lighthouse\LighthouseServiceProvider'
+        ] );
+    }
 
 
     protected function setUp(): void
@@ -69,8 +61,6 @@ class GraphqlQueryTest extends GraphqlTestAbstract
 
     public function testPages()
     {
-        $this->seed( CmsSeeder::class );
-
         $page = Page::where( 'tag', 'root' )->firstOrFail();
 
         $response = $this->actingAs( $this->user )->graphQL( '{
@@ -95,8 +85,6 @@ class GraphqlQueryTest extends GraphqlTestAbstract
 
     public function testElements()
     {
-        $this->seed( CmsSeeder::class );
-
         $element = Element::where( 'type', 'footer' )->firstOrFail();
 
         $response = $this->actingAs( $this->user )->graphQL( '{
@@ -121,8 +109,6 @@ class GraphqlQueryTest extends GraphqlTestAbstract
 
     public function testFiles()
     {
-        $this->seed( CmsSeeder::class );
-
         $response = $this->actingAs( $this->user )->graphQL( '{
             files(filter: {
                 any: "image"
