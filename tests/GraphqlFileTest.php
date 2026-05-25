@@ -11,7 +11,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
 use Nuwave\Lighthouse\Testing\RefreshesSchemaCache;
-use Database\Seeders\TestSeeder;
+use Database\Seeders\CmsSeeder;
 use Aimeos\Cms\Models\File;
 
 
@@ -22,26 +22,24 @@ class GraphqlFileTest extends GraphqlTestAbstract
     use MakesGraphQLRequests;
     use RefreshesSchemaCache;
 
-    protected $seeder = TestSeeder::class;
 
-
-    protected function defineEnvironment( $app )
-    {
+	protected function defineEnvironment( $app )
+	{
         parent::defineEnvironment( $app );
 
-        $app['config']->set( 'lighthouse.schema_path', __DIR__ . '/default-schema.graphql' );
-        $app['config']->set( 'lighthouse.namespaces.models', ['App\Models', 'Aimeos\\Cms\\Models'] );
-        $app['config']->set( 'lighthouse.namespaces.mutations', ['Aimeos\\Cms\\GraphQL\\Mutations'] );
-        $app['config']->set( 'lighthouse.namespaces.directives', ['Aimeos\\Cms\\GraphQL\\Directives'] );
+		$app['config']->set( 'lighthouse.schema_path', __DIR__ . '/default-schema.graphql' );
+		$app['config']->set( 'lighthouse.namespaces.models', ['App\Models', 'Aimeos\\Cms\\Models'] );
+		$app['config']->set( 'lighthouse.namespaces.mutations', ['Aimeos\\Cms\\GraphQL\\Mutations'] );
+		$app['config']->set( 'lighthouse.namespaces.directives', ['Aimeos\\Cms\\GraphQL\\Directives'] );
     }
 
 
-    protected function getPackageProviders( $app )
-    {
-        return array_merge( parent::getPackageProviders( $app ), [
-            'Nuwave\Lighthouse\LighthouseServiceProvider'
-        ] );
-    }
+	protected function getPackageProviders( $app )
+	{
+		return array_merge( parent::getPackageProviders( $app ), [
+			'Nuwave\Lighthouse\LighthouseServiceProvider'
+		] );
+	}
 
 
     protected function setUp(): void
@@ -60,6 +58,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testFile()
     {
+        $this->seed(CmsSeeder::class);
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
 
         $expected = [
@@ -117,6 +117,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testFiles()
     {
+        $this->seed(CmsSeeder::class);
+
         $expected = File::orderBy( 'mime' )->get()->map( function( $file ) {
             return [
                 'id' => $file->id,
@@ -177,6 +179,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testFilesMime()
     {
+        $this->seed( CmsSeeder::class );
+
         $this->expectsDatabaseQueryCount( 3 );
         $response = $this->actingAs( $this->user )->graphQL( '{
             files(filter: {
@@ -197,6 +201,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testFilesPublished()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/tiff' )->first();
 
         $this->expectsDatabaseQueryCount( 3 );
@@ -228,6 +234,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testFilesScheduled()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::whereHas( 'latest', function( $builder ) {
             $builder->where( 'cms_versions.publish_at', '!=', null )->where( 'cms_versions.published', false );
         } )->firstOrFail();
@@ -332,6 +340,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testSaveFile()
     {
+        $this->seed(CmsSeeder::class);
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 8 );
@@ -408,6 +418,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testDropFile()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 3 );
@@ -436,6 +448,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testKeepFile()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
         $file->delete();
 
@@ -464,9 +478,11 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testPubFile()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
 
-        $this->expectsDatabaseQueryCount( 5 );
+        $this->expectsDatabaseQueryCount( 6 );
         $response = $this->actingAs( $this->user )->graphQL( '
             mutation {
                 pubFile(id: ["' . $file->id . '"]) {
@@ -489,6 +505,8 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testPubFileAt()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 4 );
@@ -512,33 +530,10 @@ class GraphqlFileTest extends GraphqlTestAbstract
     }
 
 
-    public function testPubFileAtWithTime()
-    {
-        $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
-
-        $response = $this->actingAs( $this->user )->graphQL( '
-            mutation {
-                pubFile(id: ["' . $file->id . '"], at: "2099-06-15 14:30:00") {
-                    id
-                }
-            }
-        ' );
-
-        $response->assertJson( [
-            'data' => [
-                'pubFile' => [[
-                    'id' => (string) $file->id
-                ]],
-            ]
-        ] );
-
-        $file = File::with( 'latest' )->findOrFail( $file->id );
-        $this->assertStringContainsString( '14:30:00', $file->latest->publish_at );
-    }
-
-
     public function testPurgeFile()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 5 );

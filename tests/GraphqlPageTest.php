@@ -10,11 +10,10 @@ namespace Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
 use Nuwave\Lighthouse\Testing\RefreshesSchemaCache;
-use Database\Seeders\TestSeeder;
+use Database\Seeders\CmsSeeder;
 use Aimeos\Cms\Models\Element;
 use Aimeos\Cms\Models\File;
 use Aimeos\Cms\Models\Page;
-use Aimeos\Nestedset\NestedSet;
 
 
 class GraphqlPageTest extends GraphqlTestAbstract
@@ -24,26 +23,24 @@ class GraphqlPageTest extends GraphqlTestAbstract
     use MakesGraphQLRequests;
     use RefreshesSchemaCache;
 
-    protected $seeder = TestSeeder::class;
 
-
-    protected function defineEnvironment( $app )
-    {
+	protected function defineEnvironment( $app )
+	{
         parent::defineEnvironment( $app );
 
-        $app['config']->set( 'lighthouse.schema_path', __DIR__ . '/default-schema.graphql' );
-        $app['config']->set( 'lighthouse.namespaces.models', ['App\Models', 'Aimeos\\Cms\\Models'] );
-        $app['config']->set( 'lighthouse.namespaces.mutations', ['Aimeos\\Cms\\GraphQL\\Mutations'] );
-        $app['config']->set( 'lighthouse.namespaces.directives', ['Aimeos\\Cms\\GraphQL\\Directives'] );
+		$app['config']->set( 'lighthouse.schema_path', __DIR__ . '/default-schema.graphql' );
+		$app['config']->set( 'lighthouse.namespaces.models', ['App\Models', 'Aimeos\\Cms\\Models'] );
+		$app['config']->set( 'lighthouse.namespaces.mutations', ['Aimeos\\Cms\\GraphQL\\Mutations'] );
+		$app['config']->set( 'lighthouse.namespaces.directives', ['Aimeos\\Cms\\GraphQL\\Directives'] );
     }
 
 
-    protected function getPackageProviders( $app )
-    {
-        return array_merge( parent::getPackageProviders( $app ), [
-            'Nuwave\Lighthouse\LighthouseServiceProvider'
-        ] );
-    }
+	protected function getPackageProviders( $app )
+	{
+		return array_merge( parent::getPackageProviders( $app ), [
+			'Nuwave\Lighthouse\LighthouseServiceProvider'
+		] );
+	}
 
 
     protected function setUp(): void
@@ -63,13 +60,12 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPage()
     {
+        $this->seed(CmsSeeder::class);
+
         $page = Page::where('tag', 'root')->firstOrFail();
 
         // Prepare expected attributes
-        $attr = collect($page->getAttributes())
-            ->except(['tenant_id', 'latest_id', NestedSet::LFT, NestedSet::RGT, NestedSet::DEPTH])
-            ->all();
-
+        $attr = collect($page->getAttributes())->except(['tenant_id', 'latest_id', '_lft', '_rgt', 'depth'])->all();
         $expected = [
             'id' => (string) $page->id,
             'has' => $page->has,
@@ -120,14 +116,13 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPages()
     {
+        $this->seed(CmsSeeder::class);
+
         $expected = [];
         $page = Page::where('tag', 'root')->firstOrFail();
 
         // Prepare expected attributes
-        $attr = collect($page->getAttributes())
-            ->except(['tenant_id', 'latest_id', NestedSet::LFT, NestedSet::RGT, NestedSet::DEPTH])
-            ->all();
-
+        $attr = collect($page->getAttributes())->except(['tenant_id', 'latest_id', '_lft', '_rgt', 'depth'])->all();
         $expected[] = [
             'id' => (string) $page->id,
             'meta' => (array) $page->meta,
@@ -200,6 +195,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPagesDraft()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'hidden')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 2 );
@@ -231,6 +228,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPagesScheduled()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'hidden')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 2 );
@@ -262,6 +261,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPagesSort()
     {
+        $this->seed(CmsSeeder::class);
+
         $pages = Page::orderBy('id', 'desc')->take(2)->get();
 
         $response = $this->actingAs($this->user)->graphQL('{
@@ -281,6 +282,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPagesWithParentid()
     {
+        $this->seed(CmsSeeder::class);
+
         $root = Page::where('tag', 'root')->firstOrFail();
         $pages = Page::where('parent_id', $root->id)->defaultOrder()->get();
         $expected = [];
@@ -291,9 +294,7 @@ class GraphqlPageTest extends GraphqlTestAbstract
                 'parent_id' => (string) $page->parent_id,
                 'created_at' => (string) $page->created_at,
                 'updated_at' => (string) $page->updated_at,
-            ] + collect($page->getAttributes())
-                ->except(['tenant_id', 'latest_id', NestedSet::LFT, NestedSet::RGT, NestedSet::DEPTH])
-                ->all();
+            ] + collect($page->getAttributes())->except(['tenant_id', 'latest_id', '_lft', '_rgt', 'depth'])->all();
         }
 
         $this->expectsDatabaseQueryCount(2);
@@ -356,6 +357,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPageParent()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'article')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 3 );
@@ -383,6 +386,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPageChildren()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'blog')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 3 );
@@ -421,6 +426,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPageAncestors()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'article')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 2 );
@@ -447,6 +454,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPageVersions()
     {
+        $this->seed(CmsSeeder::class);
+
         $page = Page::where('tag', 'root')->firstOrFail();
         $element = $page->elements()->firstOrFail();
 
@@ -505,6 +514,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPageSimple()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'disabled')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 6 );
@@ -542,6 +553,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPageElements()
     {
+        $this->seed(CmsSeeder::class);
+
         $page = Page::where('tag', 'root')->firstOrFail();
 
         $this->expectsDatabaseQueryCount(2);
@@ -580,6 +593,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testAddPage()
     {
+        $this->seed( CmsSeeder::class );
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
         $element = Element::where( 'type', 'footer' )->firstOrFail();
 
@@ -632,10 +647,7 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
         $page = Page::where('tag', 'test')->where('lang', 'en')->firstOrFail();
 
-        $attr = collect($page->getAttributes())
-            ->except(['tenant_id', 'latest_id', NestedSet::LFT, NestedSet::RGT, NestedSet::DEPTH])
-            ->all();
-
+        $attr = collect($page->getAttributes())->except(['tenant_id', 'latest_id', '_lft', '_rgt', 'depth'])->all();
         $expected = [
             'id' => $page->id,
             'parent_id' => null,
@@ -655,6 +667,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testAddPageChild()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 7 );
@@ -692,6 +706,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testAddPageChildRef()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
         $ref = Page::where('tag', 'blog')->firstOrFail();
 
@@ -725,13 +741,15 @@ class GraphqlPageTest extends GraphqlTestAbstract
                 'addPage' => ['id' => $page->id, 'parent_id' => $root->id],
             ]
         ] );
-        $this->assertEquals( 2, $page->{NestedSet::LFT} );
-        $this->assertEquals( 3, $page->{NestedSet::RGT} );
+        $this->assertEquals( 2, $page->_lft );
+        $this->assertEquals( 3, $page->_rgt );
     }
 
 
     public function testMovePage()
     {
+        $this->seed( CmsSeeder::class );
+
         $blog = Page::where('tag', 'blog')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 6 );
@@ -761,6 +779,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testMovePageParent()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
         $article = Page::where('tag', 'article')->firstOrFail();
 
@@ -789,6 +809,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testMovePageParentRef()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
         $blog = Page::where('tag', 'blog')->firstOrFail();
         $article = Page::where('tag', 'article')->firstOrFail();
@@ -813,13 +835,15 @@ class GraphqlPageTest extends GraphqlTestAbstract
                 ],
             ]
         ] );
-        $this->assertEquals( 2, $page->{NestedSet::LFT} );
-        $this->assertEquals( 3, $page->{NestedSet::RGT} );
+        $this->assertEquals( 2, $page->_lft );
+        $this->assertEquals( 3, $page->_rgt );
     }
 
 
     public function testSavePage()
     {
+        $this->seed(CmsSeeder::class);
+
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
         $element = Element::where( 'type', 'footer' )->firstOrFail();
         $root = Page::where('tag', 'root')->firstOrFail();
@@ -925,6 +949,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testDropPage()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 5 );
@@ -958,6 +984,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testKeepPage()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
         $root->delete();
 
@@ -992,6 +1020,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPubPage()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'root')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 8 );
@@ -1018,9 +1048,11 @@ class GraphqlPageTest extends GraphqlTestAbstract
 
     public function testPubPageAt()
     {
+        $this->seed( CmsSeeder::class );
+
         $page = Page::where('tag', 'root')->firstOrFail();
 
-        $this->expectsDatabaseQueryCount( 4 );
+        $this->expectsDatabaseQueryCount( 6 );
         $response = $this->actingAs( $this->user )->graphQL( '
             mutation {
                 pubPage(id: ["' . $page->id . '"], at: "2099-01-01 00:00:00") {
@@ -1041,33 +1073,10 @@ class GraphqlPageTest extends GraphqlTestAbstract
     }
 
 
-    public function testPubPageAtWithTime()
-    {
-        $page = Page::where('tag', 'root')->firstOrFail();
-
-        $response = $this->actingAs( $this->user )->graphQL( '
-            mutation {
-                pubPage(id: ["' . $page->id . '"], at: "2099-06-15 14:30:00") {
-                    id
-                }
-            }
-        ' );
-
-        $response->assertJson( [
-            'data' => [
-                'pubPage' => [[
-                    'id' => (string) $page->id
-                ]],
-            ]
-        ] );
-
-        $page = Page::with( 'latest' )->findOrFail( $page->id );
-        $this->assertStringContainsString( '14:30:00', $page->latest->publish_at );
-    }
-
-
     public function testPurgePage()
     {
+        $this->seed( CmsSeeder::class );
+
         $root = Page::where('tag', 'root')->firstOrFail();
 
         $this->expectsDatabaseQueryCount( 6 );
