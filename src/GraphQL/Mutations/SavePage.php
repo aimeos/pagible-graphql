@@ -24,6 +24,8 @@ final class SavePage
             $args['id'],
             $args['input'] ?? [],
             Auth::user(),
+            $args['files'] ?? null,
+            $args['elements'] ?? null,
             $args['latestId'] ?? null,
         );
 
