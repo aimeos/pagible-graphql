@@ -9,8 +9,6 @@ namespace Aimeos\Cms\GraphQL\Mutations;
 
 use Aimeos\Cms\Models\Element;
 use Aimeos\Cms\Resource;
-use Aimeos\Cms\Utils;
-use Illuminate\Support\Facades\Auth;
 
 
 final class PurgeElement
@@ -22,6 +20,6 @@ final class PurgeElement
      */
     public function __invoke( $rootValue, array $args ) : array
     {
-        return Resource::purge( Element::class, $args['id'], Utils::editor( Auth::user() ) )->all();
+        return Resource::purge( Element::class, $args['id'] )->all();
     }
 }
