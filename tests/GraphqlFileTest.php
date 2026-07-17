@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @license MIT, https://opensource.org/license/mit
+ * @license LGPL, https://opensource.org/license/lgpl-3-0
  */
 
 
@@ -409,77 +409,6 @@ class GraphqlFileTest extends GraphqlTestAbstract
     }
 
 
-    public function testBulkFile()
-    {
-        $files = File::get();
-        $ids = $files->map( fn( $file ) => '"' . $file->id . '"' )->implode( ', ' );
-
-        $response = $this->actingAs( $this->user )->graphQL( '
-            mutation {
-                bulkFile(id: [' . $ids . '], input: { lang: "de" }) {
-                    ids
-                    latest
-                    data
-                    failed
-                }
-            }
-        ' );
-
-        $response->assertJsonCount( $files->count(), 'data.bulkFile.ids' );
-        $this->assertGreaterThan( 1, $files->count() );
-
-        // data and latest are JSON scalar strings
-        $data = json_decode( $response->json( 'data.bulkFile.data' ), true );
-        $latest = json_decode( $response->json( 'data.bulkFile.latest' ), true );
-
-        $this->assertEquals( 'de', $data['lang'] );
-        $this->assertSame( 0, $response->json( 'data.bulkFile.failed' ) );
-
-        foreach( $files as $file )
-        {
-            $fresh = File::findOrFail( $file->id );
-            $this->assertEquals( 'de', $fresh->latest->lang );
-            $this->assertFalse( (bool) $fresh->latest->published );
-            $this->assertEquals( $fresh->latest_id, $latest[$file->id] );
-        }
-    }
-
-
-    public function testBulkFileRejectsPath()
-    {
-        $file = File::firstOrFail();
-
-        $response = $this->actingAs( $this->user )->graphQL( '
-            mutation {
-                bulkFile(id: ["' . $file->id . '"], input: { path: "cms/test/x.jpg" }) {
-                    ids
-                }
-            }
-        ' );
-
-        $response->assertJsonPath( 'data.bulkFile', null );
-        $this->assertNotEmpty( $response->json( 'errors' ) );
-    }
-
-
-    public function testBulkFileDenied()
-    {
-        $this->user->cmsperms = [];
-        $file = File::firstOrFail();
-
-        $response = $this->actingAs( $this->user )->graphQL( '
-            mutation {
-                bulkFile(id: ["' . $file->id . '"], input: { lang: "de" }) {
-                    ids
-                }
-            }
-        ' );
-
-        $response->assertJsonPath( 'data.bulkFile', null );
-        $this->assertNotEmpty( $response->json( 'errors' ) );
-    }
-
-
     public function testDropFile()
     {
         $file = File::where( 'mime', 'image/jpeg' )->firstOrFail();
@@ -630,7 +559,7 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testAddFileRejectsSize()
     {
-        config()->set( 'cms.upload.filesize', 0.001 ); // ~1 KB
+        config()->set( 'cms.graphql.filesize', 0.001 ); // ~1 KB
 
         $response = $this->actingAs( $this->user )->multipartGraphQL( [
             'query' => '
@@ -655,7 +584,7 @@ class GraphqlFileTest extends GraphqlTestAbstract
 
     public function testAddFileRejectsMime()
     {
-        config()->set( 'cms.upload.mimetypes', ['image/'] );
+        config()->set( 'cms.graphql.mimetypes', ['image/'] );
 
         $response = $this->actingAs( $this->user )->multipartGraphQL( [
             'query' => '

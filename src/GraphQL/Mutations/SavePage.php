@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @license MIT, https://opensource.org/license/mit
+ * @license LGPL, https://opensource.org/license/lgpl-3-0
  */
 
 
@@ -20,11 +20,15 @@ final class SavePage
      */
     public function __invoke( $rootValue, array $args ) : Page
     {
-        return Resource::savePage(
+        $page = Resource::savePage(
             $args['id'],
             $args['input'] ?? [],
             Auth::user(),
             $args['latestId'] ?? null,
         );
+
+        Resource::broadcast( $page, Auth::user() );
+
+        return $page;
     }
 }

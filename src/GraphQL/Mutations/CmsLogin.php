@@ -1,15 +1,12 @@
 <?php
 
 /**
- * @license MIT, https://opensource.org/license/mit
+ * @license LGPL, https://opensource.org/license/lgpl-3-0
  */
 
 
 namespace Aimeos\Cms\GraphQL\Mutations;
 
-use Aimeos\Cms\Events\Authed;
-use Aimeos\Cms\Tenancy;
-use Aimeos\Cms\Watch;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -24,18 +21,9 @@ final class CmsLogin
 	 */
 	public function __invoke( $rootValue, array $args ): Authenticatable
 	{
-		$email = (string) $args['email'];
-		$key = 'cms-login:' . request()->ip() . '|' . strtolower( $email );
-		$watchAuth = fn( string $action ) => Watch::dispatch( Authed::class, fn() => new Authed(
-			$action,
-			$email,
-			(string) request()->ip(),
-			(string) request()->userAgent(),
-			Tenancy::value()
-		) );
+		$key = 'cms-login:' . request()->ip() . '|' . strtolower( $args['email'] );
 
 		if( RateLimiter::tooManyAttempts( $key, 3 ) ) {
-			$watchAuth( 'login-fail' );
 			throw new Error( "Too many login attempts" );
 		}
 
@@ -44,7 +32,6 @@ final class CmsLogin
 		if( !$guard->attempt( $args ) )
 		{
 			RateLimiter::hit( $key, 60 );
-			$watchAuth( 'login-fail' );
 			throw new Error( 'Invalid credentials' );
 		}
 
@@ -55,10 +42,6 @@ final class CmsLogin
 			request()->session()->regenerate();
 		}
 
-		$user = $guard->user() ?? throw new Error( 'Login failed' );
-
-		$watchAuth( 'login' );
-
-		return $user;
+		return $guard->user() ?? throw new Error( 'Login failed' );
 	}
 }

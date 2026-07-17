@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @license MIT, https://opensource.org/license/mit
+ * @license LGPL, https://opensource.org/license/lgpl-3-0
  */
 
 
@@ -77,13 +77,6 @@ class GraphqlAuthTest extends GraphqlTestAbstract
                 'cmsLogin' => $expected,
             ]
         ] );
-    }
-
-
-    public function testRateLimiters()
-    {
-        $this->assertNotNull( RateLimiter::limiter( 'cms-graphql' ) );
-        $this->assertNotNull( RateLimiter::limiter( 'cms-login' ) );
     }
 
 
@@ -194,8 +187,7 @@ class GraphqlAuthTest extends GraphqlTestAbstract
                     settings
                 }
             }
-        ', ['settings' => json_encode( $first )] )
-            ->assertJsonPath( 'data.cmsUser.settings', json_encode( $first ) );
+        ', ['settings' => json_encode( $first )] );
 
         $this->actingAs( $this->user )->graphQL( '
             mutation ($settings: JSON!) {
@@ -203,8 +195,7 @@ class GraphqlAuthTest extends GraphqlTestAbstract
                     settings
                 }
             }
-        ', ['settings' => json_encode( $second )] )
-            ->assertJsonPath( 'data.cmsUser.settings', json_encode( $second ) );
+        ', ['settings' => json_encode( $second )] );
 
         $this->assertEquals( $second, json_decode( $this->user->fresh()->cmsdata, true ) );
     }

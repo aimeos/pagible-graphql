@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @license MIT, https://opensource.org/license/mit
+ * @license LGPL, https://opensource.org/license/lgpl-3-0
  */
 
 
@@ -9,8 +9,6 @@ namespace Aimeos\Cms\GraphQL\Mutations;
 
 use Aimeos\Cms\Models\Page;
 use Aimeos\Cms\Resource;
-use Aimeos\Cms\Utils;
-use Illuminate\Support\Facades\Auth;
 
 
 final class PurgePage
@@ -22,6 +20,6 @@ final class PurgePage
      */
     public function __invoke( $rootValue, array $args ) : array
     {
-        return Resource::purge( Page::class, $args['id'], Utils::editor( Auth::user() ) )->all();
+        return Resource::purge( Page::class, $args['id'] )->all();
     }
 }

@@ -10,14 +10,14 @@ composer require aimeos/pagible
 
 ## Configuration
 
-GraphQL-specific configuration is available in `config/cms/graphql.php`:
+After installation, the configuration is available in `config/cms/graphql.php`:
 
 | Option | Env Variable | Default | Description |
 |--------|-------------|---------|-------------|
-| `maxdepth` | `CMS_GRAPHQL_MAXDEPTH` | `15` | Maximum query nesting depth |
-| `maxcomplexity` | `CMS_GRAPHQL_MAXCOMPLEXITY` | `10000` | Maximum query complexity score |
+| `filesize` | `CMS_GRAPHQL_FILESIZE` | `50` | Maximum file upload size in MB |
+| `mimetypes` | `CMS_GRAPHQL_MIMETYPES` | See below | Allowed MIME types for uploads (comma-separated in env) |
 
-The upload policy is shared by every CMS interface and configured through `upload.filesize` and `upload.mimetypes` in `config/cms.php`.
+Default allowed MIME types: `application/gzip`, `application/pdf`, `application/vnd.*`, `application/zip`, `audio/*`, `image/*`, `text/*`, `video/*`
 
 ## Commands
 
@@ -52,4 +52,4 @@ php artisan cms:benchmark:graphql [options]
 
 ## License
 
-MIT
+LGPL-3.0-only
