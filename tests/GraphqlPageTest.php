@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @license LGPL, https://opensource.org/license/lgpl-3-0
+ * @license MIT, https://opensource.org/license/mit
  */
 
 
@@ -490,8 +490,16 @@ class GraphqlPageTest extends GraphqlTestAbstract
         $this->assertEquals($expectedData, json_decode($version['data'], true));
 
         $expectedAux = [
-            'meta' => ['type' => 'meta', 'data' => ['text' => 'Laravel CMS is outstanding']],
-            'config' => ['test' => ['type' => 'test', 'data' => ['key' => 'value']]],
+            'meta' => ['meta' => [
+                'type' => 'meta',
+                'data' => ['text' => 'Laravel CMS is outstanding'],
+                'files' => [],
+            ]],
+            'config' => ['test' => [
+                'type' => 'test',
+                'data' => ['key' => 'value'],
+                'files' => [],
+            ]],
             'content' => [
                 ['type' => 'heading', 'data' => ['title' => 'Welcome to Laravel CMS']],
                 ['type' => 'reference', 'refid' => $element->id, 'group' => 'footer'],
@@ -589,8 +597,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
                     title: "Test page"
                     to: "/to/page"
                     tag: "test"
-                    meta: "{\"canonical\":\"to\/page\"}"
-                    config: "{\"key\":\"test\"}"
+                    meta: "{\"canonical\":{\"type\":\"canonical\",\"data\":{\"url\":\"to\/page\"},\"files\":[]}}"
+                    config: "{\"styles\":{\"type\":\"styles\",\"data\":{\"text\":\"body {}\"},\"files\":[]}}"
                     content: "[{\"type\":\"heading\",\"text\":\"Welcome to Laravel CMS\"}]"
                     status: 0
                     cache: 0
@@ -829,8 +837,8 @@ class GraphqlPageTest extends GraphqlTestAbstract
                     title: "Test page"
                     to: "/to/page"
                     tag: "test"
-                    meta: "{\"canonical\":\"to\/page\"}"
-                    config: "{\"key\":\"test\"}"
+                    meta: "{\"canonical\":{\"type\":\"canonical\",\"data\":{\"url\":\"to\/page\"},\"files\":[]}}"
+                    config: "{\"styles\":{\"type\":\"styles\",\"data\":{\"text\":\"body {}\"},\"files\":[]}}"
                     content: "[{\"type\":\"heading\",\"data\":{\"title\":\"Welcome to Laravel CMS\"}}]"
                     status: 0
                     cache: 5
@@ -908,11 +916,102 @@ class GraphqlPageTest extends GraphqlTestAbstract
         $this->assertEquals($expectedLatestData, json_decode($savePage['latest']['data'] ?? null, true));
 
         $expectedLatestAux = [
-            'meta' => ['canonical' => 'to/page'],
-            'config' => ['key' => 'test'],
+            'meta' => ['canonical' => [
+                'type' => 'canonical',
+                'data' => ['url' => 'to/page'],
+                'files' => [],
+            ]],
+            'config' => ['styles' => [
+                'type' => 'styles',
+                'data' => ['text' => 'body {}'],
+                'files' => [],
+            ]],
             'content' => [['type' => 'heading', 'data' => ['title' => 'Welcome to Laravel CMS']]],
         ];
         $this->assertEquals($expectedLatestAux, json_decode($savePage['latest']['aux'] ?? null, true));
+    }
+
+
+    public function testBulkPage()
+    {
+        $pages = Page::whereNull( 'parent_id' )->take( 2 )->get();
+        $ids = $pages->map( fn( $page ) => '"' . $page->id . '"' )->implode( ', ' );
+
+        $response = $this->actingAs( $this->user )->graphQL( '
+            mutation {
+                bulkPage(id: [' . $ids . '], input: { status: 0, cache: 15 }) {
+                    ids
+                    latest
+                    data
+                    failed
+                }
+            }
+        ' );
+
+        $response->assertJsonCount( $pages->count(), 'data.bulkPage.ids' );
+
+        // data and latest are JSON scalar strings
+        $applied = json_decode( $response->json( 'data.bulkPage.data' ), true );
+        $latest = json_decode( $response->json( 'data.bulkPage.latest' ), true );
+
+        $this->assertEquals( 15, $applied['cache'] );
+        $this->assertSame( 0, $response->json( 'data.bulkPage.failed' ) );
+
+        foreach( $pages as $page )
+        {
+            $fresh = Page::findOrFail( $page->id );
+            $data = (array) $fresh->latest->data;
+
+            $this->assertEquals( 0, $data['status'] );
+            $this->assertEquals( 15, $data['cache'] );
+            $this->assertFalse( (bool) $fresh->latest->published );
+            $this->assertEquals( $fresh->latest_id, $latest[$page->id] );
+        }
+    }
+
+
+    public function testBulkPageDescendants()
+    {
+        $root = Page::where( 'tag', 'root' )->firstOrFail();
+        $expected = Page::withTrashed()
+            ->whereBetween( NestedSet::LFT, [$root->getLft(), $root->getRgt()] )
+            ->count();
+
+        $this->assertGreaterThan( 1, $expected );
+
+        $response = $this->actingAs( $this->user )->graphQL( '
+            mutation {
+                bulkPage(id: ["' . $root->id . '"], input: { cache: 30 }, descendants: true) {
+                    ids
+                }
+            }
+        ' );
+
+        $response->assertJsonCount( $expected, 'data.bulkPage.ids' );
+
+        foreach( $root->children as $child )
+        {
+            $data = (array) Page::findOrFail( $child->id )->latest->data;
+            $this->assertEquals( 30, $data['cache'] );
+        }
+    }
+
+
+    public function testBulkPageDenied()
+    {
+        $this->user->cmsperms = [];
+        $root = Page::where( 'tag', 'root' )->firstOrFail();
+
+        $response = $this->actingAs( $this->user )->graphQL( '
+            mutation {
+                bulkPage(id: ["' . $root->id . '"], input: { cache: 30 }) {
+                    ids
+                }
+            }
+        ' );
+
+        $response->assertJsonPath( 'data.bulkPage', null );
+        $this->assertNotEmpty( $response->json( 'errors' ) );
     }
 
 
@@ -987,7 +1086,7 @@ class GraphqlPageTest extends GraphqlTestAbstract
     {
         $page = Page::where('tag', 'root')->firstOrFail();
 
-        $this->expectsDatabaseQueryCount( 14 );
+        $this->expectsDatabaseQueryCount( 13 );
 
         $response = $this->actingAs( $this->user )->graphQL( '
             mutation {

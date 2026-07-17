@@ -7,21 +7,19 @@
 
 namespace Aimeos\Cms\GraphQL\Mutations;
 
-use Aimeos\Cms\Models\File;
 use Aimeos\Cms\Resource;
-use Aimeos\Cms\Utils;
 use Illuminate\Support\Facades\Auth;
 
 
-final class PurgeFile
+final class BulkFile
 {
     /**
      * @param  null  $rootValue
      * @param  array<string, mixed>  $args
-     * @return array<int, mixed>
+     * @return array{ids: list<string>, latest: array<string, string>, data: array<string, mixed>, failed: int}
      */
     public function __invoke( $rootValue, array $args ) : array
     {
-        return Resource::purge( File::class, $args['id'], Utils::editor( Auth::user() ) )->all();
+        return Resource::bulkFile( $args['id'], $args['input'] ?? [], Auth::user() );
     }
 }

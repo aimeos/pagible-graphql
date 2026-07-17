@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @license LGPL, https://opensource.org/license/lgpl-3-0
+ * @license MIT, https://opensource.org/license/mit
  */
 
 
@@ -356,6 +356,77 @@ class GraphqlElementTest extends GraphqlTestAbstract
         $this->assertEquals('de', $latestData['lang']);
         $this->assertEquals(['key' => 'value'], $latestData['data']);
         $this->assertArrayHasKey('name', $latestData);
+    }
+
+
+    public function testBulkElement()
+    {
+        $elements = Element::get();
+        $ids = $elements->map( fn( $element ) => '"' . $element->id . '"' )->implode( ', ' );
+
+        $response = $this->actingAs( $this->user )->graphQL( '
+            mutation {
+                bulkElement(id: [' . $ids . '], input: { lang: "de" }) {
+                    ids
+                    latest
+                    data
+                    failed
+                }
+            }
+        ' );
+
+        $response->assertJsonCount( $elements->count(), 'data.bulkElement.ids' );
+
+        // data and latest are JSON scalar strings
+        $data = json_decode( $response->json( 'data.bulkElement.data' ), true );
+        $latest = json_decode( $response->json( 'data.bulkElement.latest' ), true );
+
+        $this->assertEquals( 'de', $data['lang'] );
+        $this->assertFalse( $data['published'] );
+        $this->assertSame( 0, $response->json( 'data.bulkElement.failed' ) );
+
+        foreach( $elements as $element )
+        {
+            $fresh = Element::findOrFail( $element->id );
+            $this->assertEquals( 'de', $fresh->latest->lang );
+            $this->assertFalse( (bool) $fresh->latest->published );
+            $this->assertEquals( $fresh->latest_id, $latest[$element->id] );
+        }
+    }
+
+
+    public function testBulkElementRejectsData()
+    {
+        $element = Element::firstOrFail();
+
+        $response = $this->actingAs( $this->user )->graphQL( '
+            mutation {
+                bulkElement(id: ["' . $element->id . '"], input: { data: {} }) {
+                    ids
+                }
+            }
+        ' );
+
+        $response->assertJsonPath( 'data.bulkElement', null );
+        $this->assertNotEmpty( $response->json( 'errors' ) );
+    }
+
+
+    public function testBulkElementDenied()
+    {
+        $this->user->cmsperms = [];
+        $element = Element::firstOrFail();
+
+        $response = $this->actingAs( $this->user )->graphQL( '
+            mutation {
+                bulkElement(id: ["' . $element->id . '"], input: { lang: "de" }) {
+                    ids
+                }
+            }
+        ' );
+
+        $response->assertJsonPath( 'data.bulkElement', null );
+        $this->assertNotEmpty( $response->json( 'errors' ) );
     }
 
 
