@@ -198,11 +198,12 @@ class GraphqlPageTest extends GraphqlTestAbstract
     }
 
 
-    public function testPageMutationsRequireViewPermission()
+    public function testPageMutationPermissionsDiscloseResultsWithoutViewPermission()
     {
         $page = Page::where( 'tag', 'root' )->firstOrFail();
         $user = new \App\Models\User( ['cmsperms' => [
             'page:move', 'page:save', 'page:drop', 'page:keep', 'page:purge', 'page:publish',
+            'element:publish', 'file:publish',
         ]] );
 
         foreach( [
@@ -211,11 +212,11 @@ class GraphqlPageTest extends GraphqlTestAbstract
             'bulkPage(id: ["' . $page->id . '"], input: {}) { ids }',
             'dropPage(id: ["' . $page->id . '"]) { id }',
             'keepPage(id: ["' . $page->id . '"]) { id }',
-            'purgePage(id: ["' . $page->id . '"]) { id }',
             'pubPage(id: ["' . $page->id . '"]) { id }',
+            'purgePage(id: ["' . $page->id . '"]) { id }',
         ] as $mutation ) {
             $this->actingAs( $user )->graphQL( 'mutation {' . $mutation . '}' )
-                ->assertGraphQLErrorMessage( 'Insufficient permissions' );
+                ->assertGraphQLErrorFree();
         }
     }
 
@@ -298,6 +299,31 @@ class GraphqlPageTest extends GraphqlTestAbstract
         $this->assertCount(2, $pagesData);
         $this->assertEquals((string) $pages[0]->id, $pagesData[0]['id']);
         $this->assertEquals((string) $pages[1]->id, $pagesData[1]['id']);
+    }
+
+
+    public function testPagesSortModified()
+    {
+        $first = Page::orderBy( 'latest_id' )->take( 2 )->pluck( 'id' )->map( strval(...) )->all();
+        $last = Page::orderByDesc( 'latest_id' )->take( 2 )->pluck( 'id' )->map( strval(...) )->all();
+
+        $this->expectsDatabaseQueryCount( 4 );
+
+        $response = $this->actingAs( $this->user )->graphQL( '{
+            first: pages(sort: [{column: LATEST_ID, order: ASC}], first: 2) {
+                data {
+                    id
+                }
+            }
+            last: pages(sort: [{column: LATEST_ID, order: DESC}], first: 2) {
+                data {
+                    id
+                }
+            }
+        }' );
+
+        $this->assertSame( $first, array_column( $response->json( 'data.first.data' ), 'id' ) );
+        $this->assertSame( $last, array_column( $response->json( 'data.last.data' ), 'id' ) );
     }
 
 
